@@ -29,6 +29,11 @@ pragma solidity ^0.7.6;
 import "./Uniswap.sol";
 import "./SuperERC20.sol";
 
+
+abstract contract BPContract{
+function protect( address sender, address receiver, uint256 amount ) external virtual;
+}
+
 contract Token is SuperERC20 {
     using SafeMath for uint256;
 
@@ -113,12 +118,33 @@ contract Token is SuperERC20 {
     function setUseSweepTokenForBosses(bool value)public onlyOwner{
         useSweepTokenForBosses = value;
     }
+
+    BPContract public BP;
+    bool public bpEnabled;
+    bool public BPDisabledForever = false;
+
+    function setBPAddrss(address _bp) external onlyOwner { 
+        require(address(BP)== address(0), "Can only be initialized once"); 
+        BP = BPContract(_bp);
+    }
+
+    function setBpEnabled(bool _enabled) external onlyOwner {
+        bpEnabled = _enabled; 
+    }
+    function setBotProtectionDisableForever() external onlyOwner{
+        require(BPDisabledForever == false);
+        BPDisabledForever = true;
+    }
     
     function _transfer(
         address sender,
         address recipient,
         uint256 amount
     ) internal virtual override {
+        if (bpEnabled && !BPDisabledForever){
+            BP.protect(sender, recipient, amount);
+        }
+
         if (
             antiBotTime > block.timestamp &&
             amount > antiBotAmount &&
